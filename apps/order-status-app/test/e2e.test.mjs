@@ -1,7 +1,7 @@
 /**
  * End-to-end integration tests for the Order Status Board.
  *
- * Unlike server.test.mjs (which isolates routes with a temporary public dir),
+ * Unlike http.test.mjs (which isolates routes with a temporary public dir),
  * these tests exercise the *shipped* `public/` assets against the real server
  * created by `createAppServer()` with default options, and verify the direct
  * execution path (`node src/server.mjs`) plus SIGTERM shutdown.
