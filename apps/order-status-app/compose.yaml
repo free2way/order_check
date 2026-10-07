@@ -1,0 +1,31 @@
+services:
+  order-status-app:
+    image: ${ORDER_STATUS_IMAGE:-order-status-app:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: order-status-app
+    environment:
+      PORT: "8080"
+      APP_VERSION: ${APP_VERSION:-0.1.0}
+    ports:
+      # Bind to loopback only; never expose this service on a public interface.
+      - "127.0.0.1:${ORDER_STATUS_PORT:-18080}:8080"
+    read_only: true
+    tmpfs:
+      - /tmp
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:8080/healthz').then(r=>{if(!r.ok)process.exit(1);return r.json()}).then(b=>{if(!b||b.service!=='order-status-app')process.exit(1)}).catch(()=>process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    restart: unless-stopped

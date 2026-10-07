@@ -1,0 +1,16 @@
+# Keep the build context lean and never ship local or test material.
+.git
+.gitignore
+.dockerignore
+node_modules
+npm-debug.log*
+yarn-error.log*
+test
+tests
+coverage
+ops
+compose.yaml
+Dockerfile
+*.md
+.env
+.env.*
