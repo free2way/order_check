@@ -63,7 +63,10 @@ node --test apps/order-status-app/test/*.test.mjs
 
 The suites use the built-in `node:test` runner and `node:assert`; they bind a
 random local port and close the server after each test, so no process or port
-is left behind.
+is left behind. `test/domain.test.mjs` covers the domain rules,
+`test/server.test.mjs` exercises the HTTP routes, and `test/e2e.test.mjs` runs
+the shipped `public/` UI against the real server and verifies the direct
+execution + `SIGTERM` shutdown path.
 
 `npm run check` performs a syntax check of the server and domain modules.
 
@@ -90,7 +93,13 @@ Request body (JSON, max 64 KiB):
 Response:
 
 ```json
-{ "orderId": "ORDER-1", "status": "WAITING_STOCK", "message": "..." }
+{
+  "orderId": "ORDER-1",
+  "paid": true,
+  "stock": false,
+  "status": "WAITING_STOCK",
+  "message": "订单已支付，等待库存补充"
+}
 ```
 
 Status rules:
@@ -101,8 +110,16 @@ Status rules:
 | `true`  | `false` | `WAITING_STOCK`   |
 | `true`  | `true`  | `READY_TO_SHIP`   |
 
-Invalid input returns HTTP `400` with a JSON error whose `code` is
-`INVALID_INPUT`.
+Invalid input returns HTTP `400` with a JSON error envelope whose `code` is
+`INVALID_INPUT`:
+
+```json
+{ "error": { "code": "INVALID_INPUT", "message": "..." } }
+```
+
+All error responses use the same `{ "error": { "code", "message" } }`
+envelope (malformed JSON, wrong `Content-Type`, payloads over 64 KiB, and
+unknown routes all return it as well).
 
 ## Docker build
 
