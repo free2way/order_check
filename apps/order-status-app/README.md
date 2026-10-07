@@ -64,8 +64,9 @@ node --test apps/order-status-app/test/*.test.mjs
 The suites use the built-in `node:test` runner and `node:assert`; they bind a
 random local port and close the server after each test, so no process or port
 is left behind. `test/domain.test.mjs` covers the domain rules,
-`test/http.test.mjs` exercises the HTTP routes, and `test/e2e.test.mjs` runs
-the shipped `public/` UI against the real server and verifies the direct
+`test/http.test.mjs` exercises the HTTP routes, `test/order-id.test.mjs` covers
+the shared Unicode order ID boundary used by the UI, and `test/e2e.test.mjs`
+runs the shipped `public/` UI against the real server and verifies the direct
 execution + `SIGTERM` shutdown path.
 
 `npm run check` performs a syntax check of the server and domain modules.

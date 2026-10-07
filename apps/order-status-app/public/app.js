@@ -1,9 +1,10 @@
 // Order Status Board — dependency-free single-page controller.
 // Posts to the JSON API and renders the returned status code + Chinese message.
 
+import { validateOrderId } from "./order-id.mjs";
+
 const API_URL = "/api/orders/evaluate";
 const REQUEST_TIMEOUT_MS = 10000;
-const MAX_ORDER_ID_LENGTH = 40;
 
 const STATUS_ZH = {
   WAITING_PAYMENT: "等待支付",
@@ -158,20 +159,15 @@ UI.form.addEventListener("submit", async (event) => {
   if (UI.submit.disabled) return;
 
   clearOrderIdError();
-  const orderId = UI.orderId.value.trim();
-
-  if (orderId === "") {
-    showOrderIdError("请输入订单号。");
-    return;
-  }
-  if (orderId.length > MAX_ORDER_ID_LENGTH) {
-    showOrderIdError(`订单号最多 ${MAX_ORDER_ID_LENGTH} 个字符。`);
+  const validation = validateOrderId(UI.orderId.value);
+  if (!validation.ok) {
+    showOrderIdError(validation.error);
     return;
   }
 
   setLoading(true);
   try {
-    await evaluateOrder(orderId);
+    await evaluateOrder(validation.orderId);
   } finally {
     setLoading(false);
   }

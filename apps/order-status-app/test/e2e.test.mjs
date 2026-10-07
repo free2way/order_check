@@ -72,8 +72,12 @@ test('the shipped SPA is served, wired to the API, and returns business results'
     assert.match(html, /有库存/);
     assert.match(html, /评估订单/);
     // Same-origin local assets only.
-    assert.match(html, /(?:\.\/|\/)app\.js/);
-    assert.match(html, /(?:\.\/|\/)styles\.css/);
+    assert.match(html, /(?:\/|\.\/)app\.js/);
+    assert.match(html, /(?:\/|\.\/)styles\.css/);
+    // The order ID input must not enforce a native UTF-16 `maxlength`; the
+    // script validates by Unicode code points so valid supplementary-plane
+    // identifiers can reach the API.
+    assert.doesNotMatch(html, /\bmaxlength\s*=/i);
     assert.doesNotMatch(html, /https?:\/\/(?!127\.0\.0\.1|localhost)/);
     assert.doesNotMatch(html, /@import/);
 
@@ -89,6 +93,14 @@ test('the shipped SPA is served, wired to the API, and returns business results'
     const jsSource = await js.text();
     assert.match(jsSource, /\/api\/orders\/evaluate/);
     assert.match(jsSource, /application\/json/);
+    // The controller delegates order ID validation to the shared module that
+    // counts Unicode code points (matching the server domain).
+    assert.match(jsSource, /order-id\.mjs/);
+
+    const orderIdModule = await fetch(`${baseUrl}/order-id.mjs`);
+    assert.equal(orderIdModule.status, 200);
+    assert.match(orderIdModule.headers.get('content-type') ?? '', /javascript/);
+    assert.match(await orderIdModule.text(), /countOrderIdCharacters/);
 
     // 3. The API route the page uses returns the three business statuses.
     const cases = [
