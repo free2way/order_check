@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="description" content="订单履约状态台：根据支付与库存情况评估订单履约状态。" />
+    <title>订单履约状态台</title>
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <main class="app">
+      <header class="app__header">
+        <h1 class="app__title">订单履约状态台</h1>
+        <p class="app__subtitle">输入订单号，选择支付与库存情况，快速评估订单履约状态。</p>
+      </header>
+
+      <form id="order-form" class="card" novalidate aria-describedby="form-hint">
+        <p id="form-hint" class="hint">订单号去除首尾空格后需为 1–40 个字符。</p>
+
+        <div class="field">
+          <label class="field__label" for="order-id">订单号</label>
+          <input
+            id="order-id"
+            name="orderId"
+            class="field__input"
+            type="text"
+            inputmode="text"
+            autocomplete="off"
+            autocapitalize="off"
+            spellcheck="false"
+            maxlength="40"
+            placeholder="例如：ORD-2024-0001"
+            aria-invalid="false"
+            aria-describedby="order-id-error"
+          />
+          <p id="order-id-error" class="field__error" role="alert" hidden></p>
+        </div>
+
+        <fieldset class="fieldset" aria-describedby="fulfilment-hint">
+          <legend class="fieldset__legend">履约信息</legend>
+          <p id="fulfilment-hint" class="hint">勾选当前订单已满足的条件。</p>
+
+          <label class="checkbox" for="paid">
+            <input id="paid" name="paid" type="checkbox" />
+            <span>已支付</span>
+          </label>
+
+          <label class="checkbox" for="stock">
+            <input id="stock" name="stock" type="checkbox" />
+            <span>有库存</span>
+          </label>
+        </fieldset>
+
+        <div class="actions">
+          <button id="submit-button" class="button" type="submit">
+            <span class="button__label">评估订单</span>
+            <span class="button__spinner" aria-hidden="true"></span>
+          </button>
+        </div>
+      </form>
+
+      <section
+        id="result"
+        class="result"
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        tabindex="-1"
+        hidden
+      >
+        <h2 class="result__heading">评估结果</h2>
+        <p class="result__status">
+          <span id="result-code" class="badge"></span>
+        </p>
+        <p id="result-message" class="result__message"></p>
+      </section>
+    </main>
+
+    <script type="module" src="./app.js"></script>
+  </body>
+</html>
