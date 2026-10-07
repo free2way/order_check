@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, rm, symlink } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
@@ -191,6 +191,47 @@ test('static files are served and path traversal is blocked', async () => {
 
         const missing = await fetch(`${baseUrl}/missing.html`);
         assert.equal(missing.status, 404);
+      },
+      { publicDir },
+    );
+  } finally {
+    await rm(root, { recursive: true, force: true });
+  }
+});
+
+test('static file symlinks pointing outside the public dir are rejected', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'order-status-public-'));
+  const publicDir = path.join(root, 'public');
+  await mkdir(publicDir);
+  await writeFile(path.join(publicDir, 'index.html'), '<h1>order status</h1>', 'utf8');
+
+  const secret = path.join(root, 'secret.txt');
+  await writeFile(secret, 'top-secret', 'utf8');
+  await symlink(secret, path.join(publicDir, 'leak.txt'));
+
+  // A symlinked directory escaping the root must also be rejected.
+  const outsideDir = path.join(root, 'outside');
+  await mkdir(outsideDir);
+  await writeFile(path.join(outsideDir, 'index.html'), 'outside-index', 'utf8');
+  await symlink(outsideDir, path.join(publicDir, 'escape'));
+
+  try {
+    await withServer(
+      async (baseUrl) => {
+        const leak = await fetch(`${baseUrl}/leak.txt`);
+        assert.equal(leak.status, 403);
+        const leakBody = await leak.json();
+        assert.equal(leakBody.error.code, 'FORBIDDEN');
+
+        const escape = await fetch(`${baseUrl}/escape/`);
+        assert.equal(escape.status, 403);
+        const escapeBody = await escape.json();
+        assert.equal(escapeBody.error.code, 'FORBIDDEN');
+
+        // The legitimate file inside the root is still served.
+        const index = await fetch(`${baseUrl}/`);
+        assert.equal(index.status, 200);
+        assert.match(await index.text(), /order status/);
       },
       { publicDir },
     );

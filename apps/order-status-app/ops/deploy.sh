@@ -71,11 +71,13 @@ case "$ENVIRONMENT" in
     docker build --tag "$IMAGE" "$APP_DIR"
     ;;
   production | prod)
-    printf '==> Using pre-built image %s (production never builds)\n' "$IMAGE"
-    if ! docker image inspect "$IMAGE" >/dev/null 2>&1; then
-      printf 'Image %s is not available locally; publish it first.\n' "$IMAGE" >&2
-      exit 1
-    fi
+    # Production never builds: pull the published reference for `$IMAGE`.
+    # `set -e` (plus the explicit command) makes a pull failure non-zero.
+    printf '==> Pulling published image %s (production never builds)\n' "$IMAGE"
+    docker compose \
+      --file "$COMPOSE_FILE" \
+      --project-name "$PROJECT_NAME" \
+      pull order-status-app
     ;;
 esac
 

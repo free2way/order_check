@@ -13,7 +13,7 @@
 
 import http from 'node:http';
 import path from 'node:path';
-import { readFile, stat } from 'node:fs/promises';
+import { readFile, realpath, stat } from 'node:fs/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import { evaluateOrder, InvalidOrderError } from './domain.mjs';
@@ -202,15 +202,35 @@ async function serveStatic(req, res, publicDir) {
     return;
   }
 
-  let data;
+  // Resolve symbolic links before reading. `stat()` follows links, so a link
+  // placed inside publicDir could otherwise expose a file outside the root.
+  // Validate the *real* target against the *real* public root.
+  let realRoot;
+  let realTarget;
   try {
-    data = await readFile(target);
+    [realRoot, realTarget] = await Promise.all([
+      realpath(path.resolve(publicDir)),
+      realpath(target),
+    ]);
   } catch {
     sendError(res, 404, 'NOT_FOUND', '资源未找到');
     return;
   }
 
-  const contentType = CONTENT_TYPES[path.extname(target).toLowerCase()] ?? 'application/octet-stream';
+  if (realTarget !== realRoot && !realTarget.startsWith(realRoot + path.sep)) {
+    sendError(res, 403, 'FORBIDDEN', '禁止访问该路径');
+    return;
+  }
+
+  let data;
+  try {
+    data = await readFile(realTarget);
+  } catch {
+    sendError(res, 404, 'NOT_FOUND', '资源未找到');
+    return;
+  }
+
+  const contentType = CONTENT_TYPES[path.extname(realTarget).toLowerCase()] ?? 'application/octet-stream';
   res.writeHead(200, {
     'Content-Type': contentType,
     'Content-Length': data.byteLength,
