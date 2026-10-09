@@ -11,7 +11,8 @@
 #
 # Behaviour:
 #   * staging   builds ${ORDER_STATUS_IMAGE:-order-status-app:<tag>} locally
-#   * production expects an already published image and never builds
+#   * production never builds: it reuses the staging-verified image when that
+#     image is already present locally, and otherwise pulls a published reference
 #   * both run `compose up -d` (idempotent) and wait for the healthcheck
 #   * never runs `docker prune` and never removes unrelated images/containers
 #
@@ -71,13 +72,20 @@ case "$ENVIRONMENT" in
     docker build --tag "$IMAGE" "$APP_DIR"
     ;;
   production | prod)
-    # Production never builds: pull the published reference for `$IMAGE`.
-    # `set -e` (plus the explicit command) makes a pull failure non-zero.
-    printf '==> Pulling published image %s (production never builds)\n' "$IMAGE"
-    docker compose \
-      --file "$COMPOSE_FILE" \
-      --project-name "$PROJECT_NAME" \
-      pull order-status-app
+    # Production never builds. Prefer the image the staging deploy already built and
+    # smoke-verified ON THIS HOST: the tag carries the commit, so it is the same
+    # artifact. This deployment has no registry, so a pull of `local/...` can never
+    # succeed; only fall back to a pull when the local image is genuinely missing.
+    if docker image inspect "$IMAGE" >/dev/null 2>&1; then
+      printf '==> Reusing staging-verified local image %s\n' "$IMAGE"
+    else
+      printf '==> Pulling published image %s (production never builds)\n' "$IMAGE"
+      # `set -e` (plus the explicit command) makes a pull failure non-zero.
+      docker compose \
+        --file "$COMPOSE_FILE" \
+        --project-name "$PROJECT_NAME" \
+        pull order-status-app
+    fi
     ;;
 esac
 
