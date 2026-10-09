@@ -4,7 +4,6 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: order-status-app
     environment:
       PORT: "8080"
       APP_VERSION: ${APP_VERSION:-0.1.0}

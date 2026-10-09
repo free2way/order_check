@@ -11,8 +11,8 @@
 #
 # Behaviour:
 #   * staging   builds ${ORDER_STATUS_IMAGE:-order-status-app:<tag>} locally
-#   * production never builds: it reuses the staging-verified image when that
-#     image is already present locally, and otherwise pulls a published reference
+#   * production never builds or pulls: it only reuses the exact image that
+#     staging already built and verified on this host
 #   * both run `compose up -d` (idempotent) and wait for the healthcheck
 #   * never runs `docker prune` and never removes unrelated images/containers
 #
@@ -54,7 +54,17 @@ fi
 SCRIPT_DIR="$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)"
 APP_DIR="$(CDPATH= cd -- "$SCRIPT_DIR/.." && pwd)"
 COMPOSE_FILE="$APP_DIR/compose.yaml"
-PROJECT_NAME="order-status-app"
+case "$ENVIRONMENT" in
+  staging)
+    # Keep the existing staging project identity so this upgrade does not leave
+    # a legacy container behind on the staging port.
+    PROJECT_NAME="order-status-app"
+    ;;
+  production | prod)
+    # Production must be a separate stack so promotion never replaces staging.
+    PROJECT_NAME="${COMPOSE_PROJECT_NAME:-order-status-production}"
+    ;;
+esac
 
 IMAGE="${ORDER_STATUS_IMAGE:-order-status-app:${IMAGE_TAG}}"
 export ORDER_STATUS_IMAGE="$IMAGE"
@@ -72,19 +82,14 @@ case "$ENVIRONMENT" in
     docker build --tag "$IMAGE" "$APP_DIR"
     ;;
   production | prod)
-    # Production never builds. Prefer the image the staging deploy already built and
-    # smoke-verified ON THIS HOST: the tag carries the commit, so it is the same
-    # artifact. This deployment has no registry, so a pull of `local/...` can never
-    # succeed; only fall back to a pull when the local image is genuinely missing.
+    # Production never builds or pulls. The executor has already verified that
+    # this exact digest passed staging on this host; a missing image is therefore
+    # a hard consistency failure, not permission to contact a registry.
     if docker image inspect "$IMAGE" >/dev/null 2>&1; then
       printf '==> Reusing staging-verified local image %s\n' "$IMAGE"
     else
-      printf '==> Pulling published image %s (production never builds)\n' "$IMAGE"
-      # `set -e` (plus the explicit command) makes a pull failure non-zero.
-      docker compose \
-        --file "$COMPOSE_FILE" \
-        --project-name "$PROJECT_NAME" \
-        pull order-status-app
+      printf 'Staging-verified local image is missing: %s\n' "$IMAGE" >&2
+      exit 1
     fi
     ;;
 esac
@@ -93,7 +98,7 @@ printf '==> Applying compose stack (idempotent)\n'
 docker compose \
   --file "$COMPOSE_FILE" \
   --project-name "$PROJECT_NAME" \
-  up --detach --no-build
+  up --detach --no-build --pull never
 
 # Wait for the container healthcheck so a broken rollout fails the deploy.
 CONTAINER_ID="$(docker compose --file "$COMPOSE_FILE" --project-name "$PROJECT_NAME" ps -q order-status-app)"
